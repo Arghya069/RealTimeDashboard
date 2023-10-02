@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MQTT Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% comment %} <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/mqttws31.js"></script> {% endcomment %}
+    
+</head>
+<body>
+    <div style="width: 80%;">
+        <canvas id="mqttChart"></canvas>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+    <script>
+        var ctx = document.getElementById('mqttChart').getContext('2d');
+        var mqttChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'MQTT Data',
+                    data: [],
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1,
+                    fill: false
+                }]
+            },
+            options: {
+                scales: {
+                    xAxes: [{
+                        type: 'time',
+                        time: {
+                            unit: 'second'
+                        },
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Time'
+                        }
+                    }],
+                    yAxes: [{
+                        scaleLabel: {
+                            display: true,
+                            labelString: 'Value'
+                        }
+                    }]
+                }
+            }
+        });
+
+        var socket = new WebSocket('ws://127.0.0.1:8000/ws/dashboard/');
+
+        socket.onmessage = function(event) {
+            console.log(event)
+            console.log("event")
+            var data = JSON.parse(event.data);
+            var timestamp = new Date(data.timestamp);
+            var value = data.value;
+
+            mqttChart.data.labels.push(timestamp);
+            mqttChart.data.datasets[0].data.push(value);
+
+            if (mqttChart.data.labels.length > 10) {
+                mqttChart.data.labels.shift();
+                mqttChart.data.datasets[0].data.shift();
+            }
+
+            mqttChart.update();
+        };
+
+
+        // Define MQTT broker and topic
+var broker = "mqtt://broker.hivemq.com:1883"; // Replace with the appropriate HiveMQ broker URL and port
+var topic = "mqtt_data_topic"; // Replace with the MQTT topic you want to subscribe to
+
+// Create an MQTT client
+var client = new Paho.MQTT.Client("mqtt.broker.com", 1883);
+
+// Set up MQTT connection options
+var options = {
+    onSuccess: onConnect,
+    onFailure: onFailure
+};
+
+// Set up callback for successful connection
+function onConnect() {
+    console.log("Connected to MQTT broker");
+    client.subscribe(topic);
+}
+
+// Set up callback for connection failure
+function onFailure(err) {
+    console.error("Failed to connect to MQTT broker: " + err.errorMessage);
+}
+
+// Set up callback for message arrival
+client.onMessageArrived = function (message) {
+    console.log("Received message: " + message.payloadString);
+    var data = JSON.parse(message.payloadString);
+    var timestamp = new Date(data.timestamp);
+    var value = data.value;
+
+    mqttChart.data.labels.push(timestamp);
+    mqttChart.data.datasets[0].data.push(value);
+
+    if (mqttChart.data.labels.length > 10) {
+        mqttChart.data.labels.shift();
+        mqttChart.data.datasets[0].data.shift();
+    }
+
+    mqttChart.update();
+};
+
+// Connect to the MQTT broker
+client.connect(options);
+    </script>
+</body>
+</html>
